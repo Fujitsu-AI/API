@@ -552,5 +552,5 @@ Die PrivateGPT-Software ist **nicht für Hochrisikoanwendungen** (gemäß EU AI 
 
 ---
 
-> **Stand:** v1.4 • Diese README dient als GitHub-kompatible Referenz und kann nach Bedarf erweitert (z. B. mit OpenAPI/Swagger-Datei) und versioniert werden.
+> **Stand:** v1.4 
 
