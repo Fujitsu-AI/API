@@ -1,101 +1,83 @@
-# PrivateGPT API (v1.4)
+# PrivateGPT API v1.4 — README
 
-> Offizielle, in Markdown aufbereitete Referenz der **PrivateGPT** REST-API – zur Veröffentlichung auf GitHub. Basierend auf der internen Spezifikation (Version 1.4, veröffentlicht am 27.03.2025).
+A concise, developer‑friendly guide to the **PrivateGPT API v1** (release **1.4**). It covers authentication, conversations (chats), sources, groups, users, and available options. The API is JSON‑only.
 
----
-
-## Inhaltsverzeichnis
-
-- [Überblick](#überblick)
-- [Änderungen & Fixes](#änderungen--fixes)
-- [Schnellstart](#schnellstart)
-- [Authentifizierung](#authentifizierung)
-  - [Login – Token anfordern](#login--token-anfordern)
-  - [Logout – Token invalidieren](#logout--token-invalidieren)
-- [Chats (Conversations)](#chats-conversations)
-  - [Neuen Chat starten](#neuen-chat-starten)
-  - [Chat fortsetzen](#chat-fortsetzen)
-  - [Chat-Details abrufen](#chat-details-abrufen)
-  - [Chat löschen](#chat-löschen)
-  - [Alle Chats löschen](#alle-chats-löschen)
-- [Sources (Dokumentenquellen)](#sources-dokumentenquellen)
-  - [Neue Source als Markdown anlegen](#neue-source-als-markdown-anlegen)
-  - [Source-Details abrufen](#source-details-abrufen)
-  - [Source bearbeiten](#source-bearbeiten)
-  - [Alle Sources einer Gruppe auflisten](#alle-sources-einer-gruppe-auflisten)
-  - [Source löschen](#source-löschen)
-- [Groups (Gruppen)](#groups-gruppen)
-  - [Verfügbare Gruppen listen](#verfügbare-gruppen-listen)
-  - [Neue Gruppe anlegen](#neue-gruppe-anlegen)
-  - [Gruppe löschen](#gruppe-löschen)
-- [Users (Benutzer)](#users-benutzer)
-  - [Benutzer anlegen](#benutzer-anlegen)
-  - [Benutzer bearbeiten](#benutzer-bearbeiten)
-  - [Benutzer löschen](#benutzer-löschen)
-  - [Benutzer reaktivieren](#benutzer-reaktivieren)
-- [Optionen (Sprachen & Rollen)](#optionen-sprachen--rollen)
-- [Einschränkungen & Hinweise](#einschränkungen--hinweise)
-- [Fehlerbehandlung](#fehlerbehandlung)
-- [Beispiele (cURL)](#beispiele-curl)
-- [Lizenz & Haftungsausschluss](#lizenz--haftungsausschluss)
+> **Important safety note**: PrivateGPT is **not designed or intended for any high‑risk uses** as defined by the EU AI Act (Art. 6 and Annex III). You must assess and manage risks for your specific use case.
 
 ---
 
-## Überblick
+## Table of Contents
 
-Die **PrivateGPT API** stellt Endpunkte bereit, um Chats zu führen (mit optionalem Dokumentenkontext/RAG), Dokumentenquellen zu verwalten, Gruppen und Benutzer zu administrieren.
-
-- **Basis-URL:** `{base_url}` (z. B. `https://pgpt.example.com`)
-- **API-Version:** `v1`
-- **Format:** Alle Requests/Responses verwenden `application/json`.
-- **Auth:** Bearer Token (siehe [Authentifizierung](#authentifizierung))
-
----
-
-## Änderungen & Fixes
-
-### Änderungen (v1.4)
-
-- *Delete an existing chat*
-- *Delete all chats from the authorized user*
-- *Added sources to conversations*
-- *Reactivate deleted user*
-
-### Fixes (v1.4)
-
-- **Security Fix:** Korrekte Durchsetzung von Berechtigungen auf allen relevanten API-Ressourcen (Dokumente, Gruppen, Benutzer, Rechtevergabe).
-- **Korrekte Dokumentstatus-Rückgabe:** `GET /api/v1/sources/{sourceId}` liefert den tatsächlichen Status (z. B. `error`, `processing`, `vectorized`).
-
-**Versionskompatibilität:** 1.3 → 1.4 (Publikation: 27.03.2025)
-
----
-
-## Schnellstart
-
-```bash
-# 1) Login – API-Token erhalten
-curl -sS -X POST \
-  -H 'Accept: application/json' \
-  -d '{"email":"USER","password":"PASS"}' \
-  {base_url}/api/v1/login
-
-# 2) Beispiel-Chat ohne Gruppen (nur allgemeines LLM-Wissen)
-curl -sS -X POST \
-  -H 'Accept: application/json' \
-  -H 'Authorization: Bearer {api-token}' \
-  -d '{"language":"en","question":"Hello World?","usePublic":true}' \
-  {base_url}/api/v1/chats
-```
+- [Overview](#overview)
+- [Version & Changes](#version--changes)
+- [Authentication](#authentication)
+  - [Login (get API token)](#login-get-api-token)
+  - [Logout (invalidate token)](#logout-invalidate-token)
+- [Conversations (Chats)](#conversations-chats)
+  - [Start a new chat](#start-a-new-chat)
+  - [Continue an existing chat](#continue-an-existing-chat)
+  - [Get chat info](#get-chat-info)
+  - [Delete a chat](#delete-a-chat)
+  - [Flush all chats for current user](#flush-all-chats-for-current-user)
+  - [Notes & limitations](#notes--limitations-chats)
+- [Sources](#sources)
+  - [Create a source (Markdown only)](#create-a-source-markdown-only)
+  - [Get source info](#get-source-info)
+  - [Edit a source](#edit-a-source)
+  - [List sources by group](#list-sources-by-group)
+  - [Delete a source](#delete-a-source)
+  - [Notes & limitations](#notes--limitations-sources)
+- [Groups](#groups)
+  - [List groups](#list-groups)
+  - [Create a group](#create-a-group)
+  - [Delete a group](#delete-a-group)
+- [Users](#users)
+  - [Create a user](#create-a-user)
+  - [Edit a user](#edit-a-user)
+  - [Delete a user](#delete-a-user)
+  - [Reactivate a user](#reactivate-a-user)
+- [Options](#options)
+  - [Languages](#languages)
+  - [Roles](#roles)
+- [Security Fixes in v1.4](#security-fixes-in-v14)
+- [Document Status Reporting Fix](#document-status-reporting-fix)
+- [Implementation Notes](#implementation-notes)
+- [FAQ](#faq)
+- [License & Compliance](#license--compliance)
 
 ---
 
-## Authentifizierung
+## Overview
 
-### Login – Token anfordern
+- **Base URL**: `{base_url}`
+- **Content Type**: `application/json` for requests and responses.
+- **Authentication**: Bearer token (see [Authentication](#authentication)).
+- **RAG behavior**: To use document knowledge (RAG), pass `usePublic: true` and/or provide `groups`. If `usePublic` is `false` and no `groups` are provided, the LLM will answer from its **general knowledge** only.
+
+---
+
+## Version & Changes
+
+- **Current version**: **1.4**
+- **Publication date**: **2025-03-27**
+- **Compatibility**: Built for v1 API; features supersede 1.3 where noted.
+
+**Highlights in 1.4**
+
+- *Security*: Proper enforcement of permissions on API resources (documents, groups, users).
+- *Correct document status reporting* via `GET /api/v1/sources/{sourceId}` (no longer always `vectorized`; true states are returned such as `error`, `processing`, etc.).
+- *Conversations with document results*: Returned `page` is always `0` (see [Notes & limitations](#notes--limitations-chats)).
+- *Single Document Chats*: Items uploaded **inside** a chat are not accessible via the `/chats` or `/sources` API (see [Notes & limitations](#notes--limitations-chats)).
+
+---
+
+## Authentication
+
+### Login (get API token)
 
 **POST** `{base_url}/api/v1/login`
 
-**Request**
+**Body**
 
 ```json
 {
@@ -108,37 +90,29 @@ curl -sS -X POST \
 
 ```json
 {
-  "data": { "token": "1|h2Y8cWpK..." },
+  "data": { "token": "1|h2Y8cWpKwsGI8..." },
   "message": "success",
   "status": 200
 }
 ```
 
-> Das Token hat aktuell kein Ablaufdatum und wird in Folge-Calls als `Authorization: Bearer {api-token}` genutzt.
+> The token **does not expire**. Use it as `Authorization: Bearer {api-token}` in subsequent calls.
 
-### Logout – Token invalidieren
+### Logout (invalidate token)
 
 **DELETE** `{base_url}/api/v1/logout`
 
-**Headers:** `Accept: application/json`, `Authorization: Bearer {api-token}`
-
-**Response**
-
-```json
-{ "data": {}, "message": "success", "status": 200 }
-```
+Headers: `Authorization: Bearer {api-token}`
 
 ---
 
-## Chats (Conversations)
+## Conversations (Chats)
 
-> Um RAG (Dokumentenwissen) zu nutzen, müssen **entweder** `usePublic: true` gesetzt **oder** eine/n oder mehrere `groups` angegeben werden. Andernfalls nutzt das LLM nur sein allgemeines Wissen.
-
-### Neuen Chat starten
+### Start a new chat
 
 **POST** `{base_url}/api/v1/chats`
 
-**Request**
+**Body**
 
 ```json
 {
@@ -160,25 +134,38 @@ curl -sS -X POST \
   },
   "message": "success",
   "status": 200,
-  "notice": "PrivateGPT provides automated responses and can make mistakes. Verify critical"
+  "notice": "PrivateGPT provides automated responses and can make mistakes. Verify critical..."
 }
 ```
 
-**Hinweis zu Quellen in Chat-Antworten (seit v1.4):** Enthaltene Dokumenttreffer liefern aktuell stets `"page": 0`, da die neue Kontextfindung keine Seitenzahlen bereitstellt. Im Frontend wird die Seite daher weggelassen.
+> **RAG control**: If `usePublic` is `false` and `groups` is empty/omitted, RAG is **disabled**. To use RAG, set `usePublic: true` and/or provide `groups` available to the user.
 
-### Chat fortsetzen
+### Continue an existing chat
 
 **PATCH** `{base_url}/api/v1/chats/{chatId}`
 
-**Request**
+**Body**
 
 ```json
 { "question": "Hello World?" }
 ```
 
-**Response** *(analog wie beim Starten)*
+**Response**
 
-### Chat-Details abrufen
+```json
+{
+  "data": {
+    "chatId": "9d29bfb6-m763-92ne-4f10-c9c28e4d94fa",
+    "answer": "Hello! How can I assist you today?",
+    "sources": []
+  },
+  "message": "success",
+  "status": 200,
+  "notice": "PrivateGPT provides automated responses and can make mistakes. Verify critical..."
+}
+```
+
+### Get chat info
 
 **GET** `{base_url}/api/v1/chats/{chatId}`
 
@@ -192,11 +179,7 @@ curl -sS -X POST \
     "language": "en",
     "groups": ["Group A", "Internals"],
     "messages": [
-      {
-        "question": "What is PrivateGPT?",
-        "answer": "PrivateGPT is mindblowing!",
-        "language": "en"
-      }
+      { "question": "What is PrivateGPT?", "answer": "PrivateGPT is mindblowing!", "language": "en" }
     ]
   },
   "message": "success",
@@ -204,43 +187,38 @@ curl -sS -X POST \
 }
 ```
 
-### Chat löschen
+### Delete a chat
 
 **DELETE** `{base_url}/api/v1/chats/{chatId}`
 
-**Response**
-
-```json
-{ "data": {}, "message": "success", "status": 200 }
-```
-
-### Alle Chats löschen
+### Flush all chats for current user
 
 **DELETE** `{base_url}/api/v1/chats/flush`
 
-**Response**
+### Notes & limitations (Chats)
 
-```json
-{ "data": {}, "message": "success", "status": 200 }
-```
+- From **v1.4**, chats that include document results **always return** a `page` value of `0`. In the frontend this page is hidden; the API keeps the field for compatibility.
+- **Single Document Chats**: Documents uploaded directly *in a chat* are **not** accessible via `/chats` or `/sources`.
+- A chat uses RAG only if `usePublic` and/or `groups` are provided as described above.
 
 ---
 
-## Sources (Dokumentenquellen)
+## Sources
 
-> Upload via API ist derzeit auf **Markdown** beschränkt. Für Uploads in Gruppen muss die Gruppe **vorher dem Benutzer** zugeordnet sein.
+> **Upload format**: **Markdown only** via API (no other formats supported at the moment).  
+> **Permissions**: Users can only upload to groups **already assigned** to their user profile (differs from WebUI where admins can upload to any group).
 
-### Neue Source als Markdown anlegen
+### Create a source (Markdown only)
 
 **POST** `{base_url}/api/v1/sources`
 
-**Request**
+**Body**
 
 ```json
 {
   "name": "My new Source",
   "groups": ["Group A"],
-  "content": "# Markdown\nThis is my content in Markdown format"
+  "content": "This is my content in Markdown format"
 }
 ```
 
@@ -250,11 +228,11 @@ curl -sS -X POST \
 { "data": { "documentId": "9d29bfb6-m763-92ne-4f10-c9c28e4d94fa" }, "message": "success", "status": 200 }
 ```
 
-### Source-Details abrufen
+### Get source info
 
 **GET** `{base_url}/api/v1/sources/{sourceId}`
 
-**Response**
+**Response (example)**
 
 ```json
 {
@@ -273,17 +251,19 @@ curl -sS -X POST \
 }
 ```
 
-### Source bearbeiten
+> In v1.4 the `state` correctly reflects the **true processing state**, e.g. `error`, `processing`, etc.
+
+### Edit a source
 
 **PATCH** `{base_url}/api/v1/sources/{sourceId}`
 
-**Request** *(alle Felder optional; nicht übergebene Felder bleiben unverändert)*
+**Body** (all fields optional; omitted fields remain unchanged)
 
 ```json
 {
   "name": "My amazing source",
   "groups": ["Group A"],
-  "content": "Updated Markdown content"
+  "content": "This is my content in Markdown format"
 }
 ```
 
@@ -293,11 +273,11 @@ curl -sS -X POST \
 { "data": { "documentId": "9d29bfb6-m763-92ne-4f10-c9c28e4d94fa" }, "message": "success", "status": 200 }
 ```
 
-### Alle Sources einer Gruppe auflisten
+### List sources by group
 
 **POST** `{base_url}/api/v1/sources/groups`
 
-**Request**
+**Body**
 
 ```json
 { "groupName": "Group A" }
@@ -307,31 +287,21 @@ curl -sS -X POST \
 
 ```json
 {
-  "data": { "sources": [
-    "9d29bfb6-m763-92ne-4f10-c9c28e4d94fa",
-    "fe8a1336-510b-4baf-8d2b-47f20c33e7d6",
-    "bcd69bc4-e3fc-4771-8526-e7d894574f13"
-  ]},
+  "data": { "sources": ["9d29...", "fe8a1...", "bcd69...", "c2df5...", "5fa13..."] },
   "message": "success",
   "status": 200
 }
 ```
 
-### Source löschen
+### Delete a source
 
 **DELETE** `{base_url}/api/v1/sources/{sourceId}`
 
-**Response**
-
-```json
-{ "data": [], "message": "success", "status": 200 }
-```
-
 ---
 
-## Groups (Gruppen)
+## Groups
 
-### Verfügbare Gruppen listen
+### List groups
 
 **GET** `{base_url}/api/v1/groups`
 
@@ -348,56 +318,46 @@ curl -sS -X POST \
 }
 ```
 
-### Neue Gruppe anlegen
+> `personalGroups` are usable for chat. `assignableGroups` are available for creating/editing users and sources.
+
+### Create a group
 
 **POST** `{base_url}/api/v1/groups`
 
-**Request**
+**Body**
 
 ```json
 { "groupName": "Group A" }
 ```
 
-**Response**
-
-```json
-{ "data": {}, "message": "success", "status": 200 }
-```
-
-### Gruppe löschen
+### Delete a group
 
 **DELETE** `{base_url}/api/v1/groups`
 
-**Request**
+**Body**
 
 ```json
 { "groupName": "Group A" }
-```
-
-**Response**
-
-```json
-{ "data": {}, "message": "success", "status": 200 }
 ```
 
 ---
 
-## Users (Benutzer)
+## Users
 
-> Die Benutzer-Identifikation erfolgt über die **E-Mail-Adresse**.
+> Users are identified by **email**. Timezone defaults to `Europe/Berlin`; language defaults to `en` unless provided otherwise.
 
-### Benutzer anlegen
+### Create a user
 
 **POST** `{base_url}/api/v1/users`
 
-**Request**
+**Body**
 
 ```json
 {
   "name": "John Doe",
   "email": "john.doe@pgpt.local",
   "language": "de",
-  "timezone": "Europe/Berlin",
+  "timezone": "UTC",
   "password": "SuperSecret42!",
   "usePublic": true,
   "groups": ["Group A"],
@@ -407,24 +367,18 @@ curl -sS -X POST \
 }
 ```
 
-**Response**
-
-```json
-{ "data": {}, "message": "success", "status": 200 }
-```
-
-### Benutzer bearbeiten
+### Edit a user
 
 **PATCH** `{base_url}/api/v1/users`
 
-**Request** *(Felder optional; E-Mail ist Pflicht und muss existieren)*
+**Body** (email **required**; all other fields optional)
 
 ```json
 {
   "email": "roy@acme.com",
   "name": "Roy Trenneman",
   "language": "de",
-  "timezone": "Europe/Berlin",
+  "timezone": "UTC",
   "password": "SuperSecret42!",
   "publicUpload": true,
   "groups": ["Group A"],
@@ -434,123 +388,97 @@ curl -sS -X POST \
 }
 ```
 
-**Response**
-
-```json
-{ "data": {}, "message": "success", "status": 200 }
-```
-
-### Benutzer löschen
+### Delete a user
 
 **DELETE** `{base_url}/api/v1/users`
 
-**Request**
+**Body**
 
 ```json
 { "email": "roy@acme.com" }
 ```
 
-**Response**
-
-```json
-{ "data": {}, "message": "success", "status": 200 }
-```
-
-### Benutzer reaktivieren
+### Reactivate a user
 
 **POST** `{base_url}/api/v1/users/reactivate`
 
-**Request**
+**Body**
 
 ```json
 { "email": "roy@acme.com" }
 ```
 
-**Response**
+---
 
-```json
-{ "data": {}, "message": "success", "status": 200 }
-```
+## Options
+
+### Languages
+
+Supported languages include (not exhaustive): `en`, `de`, `it`, `fr`, `es`, `ar`, `bg`, `cs`, `eo`, `et`, `el`, `fi`, `fa`, `he`, `hi`, `hu`, `id`, `ja`, `lt`, `lv`, `nl`, `no`, `pl`, `pt`, `pt-br`, `ro`, `ru`, `sk`, `sv`, `tr`, `uk`, `zh`.
+
+### Roles
+
+Representative roles (match web app roles/capabilities): `ad`, `analytics`, `documents`, `confluence-documents`, `smtp`, `system`, `users`.
 
 ---
 
-## Optionen (Sprachen & Rollen)
+## Security Fixes in v1.4
 
-### Sprachen (`language`)
-
-Unterstützt u. a.: `en`, `de`, `it`, `fr`, `es`, `ar`, `bg`, `cs`, `eo`, `et`, `el`, `fi`, `fa`, `he`, `hi`, `hu`, `id`, `ja`, `lt`, `lv`, `nl`, `no`, `pl`, `pt`, `pt-br`, `ro`, `ru`, `sk`, `sv`, `tr`, `uk`, `zh`.
-
-### Rollen (`roles`)
-
-Beispiele: `ad`, `analytics`, `documents`, `confluence-documents`, `smtp`, `system`, `users` – entsprechend den Rollen der Webanwendung.
+- **Access control enforcement**: Only users with appropriate permissions can view/update/delete documents, groups, or users; permission assignment via API is likewise restricted. Unauthorized attempts return appropriate error responses.
 
 ---
 
-## Einschränkungen & Hinweise
+## Document Status Reporting Fix
 
-- **Single-Document-Chats:** Während eines Chats hochgeladene Einzeldokumente sind derzeit **nicht** über die API verfügbar (`/chats` & `/sources`).
-- **Upload-Formate:** Über die API können aktuell nur **Markdown**-Quellen erstellt werden.
-- **Berechtigungen:** Zugriffskontrollen werden strikt durchgesetzt; unautorisierte Zugriffe werden mit passenden Fehlern blockiert.
-- **Seitenzahlen in Quellenhinweisen:** Aktuell immer `0` (siehe Hinweis in [Chats](#chats-conversations)).
+- `GET /api/v1/sources/{sourceId}` now returns the **actual** status (e.g., `error`, `processing`), not always `vectorized`.
 
 ---
 
-## Fehlerbehandlung
+## Implementation Notes
 
-- Responses enthalten i. d. R. Felder `message` und `status`.
-- Bei nicht ausreichenden Berechtigungen werden Fehler mit entsprechenden HTTP-Statuscodes (z. B. `401/403`) geliefert.
+- **Tokens**: Treat the bearer token like a password. Rotate if compromised.
+- **RAG**: Decide between public vs. group‑scoped documents; remember that API uploads are limited to **Markdown** (for now).
+- **Groups & Users**: A user must already be **assigned** to a group to upload sources to that group via API.
+- **Timestamps**: ISO‑8601 strings (UTC) in responses.
 
 ---
 
-## Beispiele (cURL)
+## FAQ
 
-> Ersetze `{base_url}` und `{api-token}` entsprechend deiner Umgebung.
+**Q: Why do some chat responses include `page: 0` for sources?**  
+A: In v1.4 a new context‑finding service doesn’t provide specific page numbers. The API keeps the `page` field for compatibility but always sets `0`. Frontends typically hide it.
 
-**Login**
+**Q: Can I access documents uploaded directly inside a chat?**  
+A: No. “Single document chat” uploads are **not** exposed via `/chats` or `/sources` yet.
+
+**Q: Does the API token expire?**  
+A: No. It has no expiration date.
+
+---
+
+## License & Compliance
+
+- **High‑risk usage**: The software **must not** be used for high‑risk AI uses as per EU AI Act definitions.
+- You are responsible for compliance, security, and data protection in your deployments.
+
+---
+
+### cURL Quick Reference
 
 ```bash
-curl -X POST \
-  -H 'Accept: application/json' \
-  -d '{"email":"user@example.com","password":"pass"}' \
-  {base_url}/api/v1/login
-```
+# Login
+curl -s -X POST "{base_url}/api/v1/login" -H "Accept: application/json"   -d '{ "email":"me@example.com", "password":"secret" }'
 
-**Neuen Chat mit Public-Dokumenten**
+# New chat
+curl -s -X POST "{base_url}/api/v1/chats" -H "Accept: application/json"   -H "Authorization: Bearer ${API_TOKEN}"   -d '{ "language":"en", "question":"Hello?", "usePublic":true, "groups":[] }'
 
-```bash
-curl -X POST \
-  -H 'Accept: application/json' \
-  -H 'Authorization: Bearer {api-token}' \
-  -d '{"language":"en","question":"Hello?","usePublic":true}' \
-  {base_url}/api/v1/chats
-```
+# Continue chat
+curl -s -X PATCH "{base_url}/api/v1/chats/${CHAT_ID}" -H "Accept: application/json"   -H "Authorization: Bearer ${API_TOKEN}"   -d '{ "question":"Next question" }'
 
-**Source als Markdown anlegen**
-
-```bash
-curl -X POST \
-  -H 'Accept: application/json' \
-  -H 'Authorization: Bearer {api-token}' \
-  -d '{"name":"Doc","groups":["alpha"],"content":"# Title\\nText"}' \
-  {base_url}/api/v1/sources
-```
-
-**Gruppen listen**
-
-```bash
-curl -X GET \
-  -H 'Accept: application/json' \
-  -H 'Authorization: Bearer {api-token}' \
-  {base_url}/api/v1/groups
+# Create Markdown source
+curl -s -X POST "{base_url}/api/v1/sources" -H "Accept: application/json"   -H "Authorization: Bearer ${API_TOKEN}"   -d '{ "name":"My Source", "groups":["Group A"], "content":"# Title\nMy markdown." }'
 ```
 
 ---
 
-## Lizenz & Haftungsausschluss
-
-Die PrivateGPT-Software ist **nicht für Hochrisikoanwendungen** (gemäß EU AI Act, Art. 6 und Anhang III) vorgesehen. Nutzung nur, sofern keine erheblichen Risiken für Gesundheit, Sicherheit oder Grundrechte zu erwarten sind und Entscheidungsfindungen nicht materiell beeinflusst werden. Die Bewertung und Handhabung solcher Risiken liegt allein in der Verantwortung der Nutzer.
-
----
-
-> **Stand:** v1.4 
-
+> Replace `{base_url}` with your actual API root and adjust examples as needed.
